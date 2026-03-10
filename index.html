@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式翻牌工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .perspective {
+            perspective: 1000px;
+        }
+        .flip-card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+            background-color: white;
+        }
+        .leaf-pattern {
+            background-color: #2d5a27;
+            background-image: url("https://www.transparenttextures.com/patterns/leaf.png");
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">互動式翻牌工具</h1>
+            <p class="text-gray-600">點擊卡片翻轉查看答案，再次點擊可蓋回</p>
+            <div id="status" class="mt-4 text-sm font-medium text-green-600">正在載入資料庫...</div>
+        </header>
+
+        <div id="card-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+            <!-- 卡片將由 JavaScript 動態生成 -->
+        </div>
+    </div>
+
+    <script>
+        // Google Sheet CSV 連結 (基於提供的 ID)
+        const sheetId = '2PACX-1vRCTON8VLtPHBFzNtpTTiFZsyYTKOR1qEm4u3K4-5XpH3IPjOacPtQnf0GzfolfP2pWo5gS6B3amIRA';
+        const csvUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?output=csv`;
+
+        async function fetchData() {
+            try {
+                const response = await fetch(csvUrl);
+                const data = await response.text();
+                processData(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('status').textContent = '資料載入失敗，請確認試算表已發佈到網路。';
+                document.getElementById('status').classList.replace('text-green-600', 'text-red-600');
+            }
+        }
+
+        function processData(csvData) {
+            const rows = csvData.split('\n').map(row => row.split(','));
+            
+            // 從 A7 (索引 6) 開始處理
+            // 假設 A 欄是正面(或關鍵字)，B 欄是答案
+            const contentRows = rows.slice(6).filter(row => row[0] && row[0].trim() !== "");
+            
+            if (contentRows.length === 0) {
+                document.getElementById('status').textContent = '找不到內容（請確保試算表 A7 以下有資料）。';
+                return;
+            }
+
+            renderCards(contentRows);
+            document.getElementById('status').textContent = `成功載入 ${contentRows.length} 張卡片`;
+        }
+
+        function renderCards(data) {
+            const grid = document.getElementById('card-grid');
+            grid.innerHTML = '';
+
+            data.forEach((row, index) => {
+                const term = row[0].replace(/"/g, '');
+                const definition = row[1] ? row[1].replace(/"/g, '') : "";
+
+                const card = document.createElement('div');
+                card.className = 'perspective h-48 md:h-64';
+                card.innerHTML = `
+                    <div class="flip-card-inner relative w-full h-full shadow-lg rounded-xl" onclick="this.parentElement.classList.toggle('flipped')">
+                        <!-- 正面：樹葉圖案 -->
+                        <div class="flip-card-front leaf-pattern border-4 border-white flex flex-col p-4 text-white text-center">
+                            <svg viewBox="0 0 24 24" class="w-16 h-16 mb-2 opacity-80" fill="currentColor">
+                                <path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z" />
+                            </svg>
+                            <span class="font-bold text-lg">#${index + 1}</span>
+                        </div>
+                        <!-- 背面：答案內容 -->
+                        <div class="flip-card-back border-2 border-gray-200 p-6 text-center">
+                            <div class="overflow-auto max-h-full w-full flex flex-col items-center justify-center">
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">${term}</h3>
+                                ${definition ? `<p class="text-gray-600 text-sm">${definition}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 初始化載入
+        window.onload = fetchData;
+    </script>
+</body>
+</html>
